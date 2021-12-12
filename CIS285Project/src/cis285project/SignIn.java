@@ -75,8 +75,13 @@ public class SignIn {
      */
     public void userSignIn(String userIDInput, String userPassInput){
         ProjUIController controllerObj = new ProjUIController();
-        String passFromDb = "m"; // Stores the password from the database that will be compared against. WILL REMOVE INITIALIZATION WHEN DATABASE CODE IS PRESENT. ONLY INITIALIZED FOR TESTING
-        String idInput = userIDInput;
+        System.out.println(userIDInput + " " + userPassInput);
+        controllerObj.infoVerification(userIDInput, userPassInput);
+        String passFromDb = controllerObj.getAcceptedUserPass(); // Stores the password from the database that will be compared against. WILL REMOVE INITIALIZATION WHEN DATABASE CODE IS PRESENT. ONLY INITIALIZED FOR TESTING
+        System.out.println(passFromDb);
+        String idInputDb = controllerObj.getAcceptedUser();
+        System.out.println(idInputDb);
+        System.out.println("Sign In Test");
         // Search database for password and save in passFromDb variable
         
         /*
@@ -85,9 +90,9 @@ public class SignIn {
          * If the passwords don't match it displays an error window
          * Only actually tests the password, because the password comparison will return false when for both an invalid ID and a wrong password
          */
-        if (userPassInput.equals(passFromDb)){
-            setID(idInput);
-            setRole(idInput);
+        if (userPassInput.equals(passFromDb) && userIDInput.equals(idInputDb)){
+            setID(idInputDb);
+            setRole(controllerObj.getUserRole());
             currentUser();
             displaySuccess();
             logIn();
@@ -191,6 +196,7 @@ public class SignIn {
         String output = userID + " - " + userRole;
         //System.out.println(output);
         controlObj.setRoleLbl(output);
+        controlObj.setSignedIn(true);
     }
     
     /*

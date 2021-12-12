@@ -16,6 +16,7 @@ public class User {
     private String city;
     private String state;
     private String phoneNumber;
+    private String userRole;
     
     public User(String uID, String p, String pC, String str, String c, String sT, String pN) {
         this.userID = uID;
@@ -82,5 +83,13 @@ public class User {
     
     public String getPhoneNumber() {
     return this.phoneNumber;         
+    }
+    
+    public void setUserRole(String uR) {
+    this.userRole = uR;          
+    }
+    
+    public String getUserRole() {
+    return this.userRole;         
     }
 }

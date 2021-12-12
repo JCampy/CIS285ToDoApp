@@ -321,10 +321,15 @@
                            </children>
                         </GridPane>
                         <Label layoutX="353.0" layoutY="256.0" text="Contact Information" />
-                        <Label layoutX="27.0" layoutY="256.0" text="User:" />
-                        <TextField fx:id="adminUserTxtBox" layoutX="66.0" layoutY="252.0" prefHeight="25.0" prefWidth="207.0" />
-                        <Button fx:id="updateUser" layoutX="137.0" layoutY="135.0" mnemonicParsing="false" onAction="#updateAccountInfo" text="Update" />
-                        <Button fx:id="updateOther" disable="true" layoutX="137.0" layoutY="388.0" mnemonicParsing="false" onAction="#updateAccountInfoAdmin" text="Update" />
+                        <Label layoutX="27.0" layoutY="244.0" text="User:" />
+                        <TextField fx:id="adminUserTxtBox" layoutX="76.0" layoutY="240.0" prefHeight="25.0" prefWidth="207.0" />
+                        <Button fx:id="updateUser" layoutX="137.0" layoutY="135.0" mnemonicParsing="false" onAction="#updateUserBtnClick" text="Update" />
+                        <Button fx:id="updateOther" disable="true" layoutX="137.0" layoutY="388.0" mnemonicParsing="false" onAction="#updateAdminUserBtnClick" text="Update" />
+                        <AnchorPane layoutX="73.0" layoutY="265.0" prefHeight="33.0" prefWidth="215.0">
+                           <children>
+                              <ChoiceBox fx:id="userSelectionChoiceBox" layoutX="4.0" layoutY="4.0" prefHeight="25.0" prefWidth="208.0" />
+                           </children>
+                        </AnchorPane>
                      </children></AnchorPane>
                </content>
             </Tab>

@@ -35,14 +35,17 @@ import java.time.LocalDate;
 import javafx.application.Platform;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.beans.value.WeakChangeListener;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.event.EventType;
 import javafx.scene.control.Label;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.Tab;
 import javafx.scene.control.Alert;
+import javafx.scene.input.InputMethodEvent;
 //import javafx.scene.control.ButtonBase;
 //import javafx.scene.control.Labeled;
 //import java.util.HashSet;
@@ -90,6 +93,7 @@ public class ProjUIController {
     @FXML private TextField adminStateTxtBox; // Text field for User State
     @FXML private Button updateOther; // Button for Admin to update another User's info
     @FXML private TextField adminPhoneTxtBox; // Text field for User Phone number
+    @FXML private ChoiceBox<String> userSelectionChoiceBox; // ChoiceBox incase there are multiple users with the same name
 
     
     
@@ -152,9 +156,17 @@ public class ProjUIController {
     @FXML private MenuItem userPermissionsMenuItem; // MenuItem that will show a popup that says what each role can do
   
     // Variables for User 
-    private String userID; //String variable to store the currently logged in User ID
+    private String userID;
+    private Boolean signedIn; // Boolean for storing status of user sign in.
+    private String acceptedUserID; //String variable to store the currently logged in User ID
+    private String acceptedUserPass;
     private String userRole; // String variable to store the currently logged in User Role
     private String currentUser; // String Variable to store the current user
+    
+    // Variables for user selection choicebox
+    private String name; // String variable for storing name from user selection choicebox
+    private String street; // String variable for storing street from user selection choicebox
+    private String city;  // String variable for storing state from user selection choicebox
     
   
     // Variables for LocalDate 
@@ -162,9 +174,9 @@ public class ProjUIController {
     private String dueD; // String variable for storing due date value
    
     // Variables for JDBC and MySQL database
-    private String host = "jdbc:mysql://remotemysql.com:3306/7ToOqkvNTD";
-    private String user = "7ToOqkvNTD";
-    private String pass = "sMXZGFhH0z";
+    private String host = "jdbc:mysql://localhost:3306/cis285db";
+    private String user = "root";
+    private String pass = "CIS285DB!!";
     private Connection con1; // Creates a variable for connection to MySQL database
     private PreparedStatement insert; // Creates a PreparedStatement variable insert for adding data to the MySQL database
     private Statement st; // Creates a Statement for recieing data from the MySQL database
@@ -185,23 +197,32 @@ public class ProjUIController {
     
     @FXML
     private void initialize() {
-        userRoleChoiceBox.setItems(userRoleList); // Adds options to the user role choice box on the user creation tab
+        //userRoleChoiceBox.setItems(userRoleList); // Adds options to the user role choice box on the user creation tab
         //completeCategoryListView.getItems().add("All Tasks"); // Adds an all tasks option to the completed category list
         //activeCategoryListView.getItems().add("All Tasks"); // Adds an all tasks option to the active category list ** MIGHT NEED TO REMOVE ALL RELATED CODE**
-        updateActiveCategoryLV();
-        updateCompletedCategoryLV();
+        //updateActiveCategoryLV();
+        //updateCompletedCategoryLV();
         updateUserRoleChoiceBox();
+        adminTxtBoxChangeFocus();
         //userRoleLbl.setText("Please Sign In"); // Sets the ID/Role label to a Sign In reminder
-        //activeTaskChoiceBox.setOnAction(e-> setActiveLabels());
-        //completedTaskChoiceBox.setOnAction(e-> setCompleteLabels());
-
         updateCatChoiceBox(); // update the choice box under task create with categories stored in database
 
     }
-    //public user userObj=new user (oldPassTxtBox.getText(),newPassTxtBox.getText(),adminUserTxtBox.getText(),adminOldPassTxtBox.getText(),adminNewPassTxtBox.getText());
-    //task taskObj=new task (cityTxtBox.getText(), stateTxtBox.getText(), stateTxtBox.getText(),phoneTxtBox.getText(),adminCityTxtBox.getText(),adminStateTxtBox.getText(),adminStreetTxtBox.getText(),adminPhoneTxtBox.getText());
-
-
+    
+    /*
+     * Void method for setting status after user signs in
+     */
+    public void setSignedIn(Boolean b) {
+        myControllerHandle.signedIn = b;
+    }
+    
+    /*
+     * Boolean method which returns the value for signedIn variable
+     */
+    public Boolean getSignedIn() {
+        return myControllerHandle.signedIn;
+    }
+    
     /*
      * Void Method for setting the current application user
      */
@@ -209,7 +230,7 @@ public class ProjUIController {
         myControllerHandle.currentUser = u;
     }
     
-    /*
+    /*         **** User Create Tab Starts Here ****
      * Void method for create user button that creates a new user object and gets 
      * textfield data and uploads it into the database
      */
@@ -222,8 +243,9 @@ public class ProjUIController {
         
         User userObj = new User(createIDTxtBox.getText(), createPassTxtBox.getText(), createConfirmPassTxtBox.getText(), createStreetTxtBox.getText(), createCityTxtBox.getText(),
             createStateTxtBox.getText(), createPhoneTxtBox.getText());
-        String temp = createPassTxtBox.getText().toString();
-        String temp2 = createConfirmPassTxtBox.getText().toString();
+        userObj.setUserRole(userRoleChoiceBox.getValue()); // set the value of selected choicebox option to user role
+        String temp = createPassTxtBox.getText().toString(); // Create temp variable to store textfield
+        String temp2 = createConfirmPassTxtBox.getText().toString(); // Create temp variable to store textfield
         System.out.println(temp);
         System.out.println(temp2);
         if (temp.equals(temp2)) {
@@ -231,7 +253,7 @@ public class ProjUIController {
             Class.forName("com.sun.jdi.connect.spi.Connection");
             
             con1 = DriverManager.getConnection(host, user, pass); // Creates connection to the MySQL database using host-datbase name/ username / password
-            insert = con1.prepareStatement("INSERT INTO user(username, password, street, city, state, phone)VALUES(?,?,?,?,?,?)"); 
+            insert = con1.prepareStatement("INSERT INTO user(username, password, street, city, state, phone, userrole)VALUES(?,?,?,?,?,?,?)"); 
             
             /*
              * Uses PreparedStatement equal to insert and adds the values in the corresponding columns for one row at a time 
@@ -243,6 +265,7 @@ public class ProjUIController {
             insert.setString(4, userObj.getCity());
             insert.setString(5, userObj.getState());
             insert.setString(6, userObj.getPhoneNumber());
+            insert.setString(7, userObj.getUserRole());
             
             
             insert.executeUpdate();
@@ -260,13 +283,14 @@ public class ProjUIController {
         else {
             alert.showAndWait();
             clearUserInfo();
+            updateUserRoleChoiceBox();
         }
         
         
         
         
         clearUserInfo(); // Calls method that clears textfields 
-        
+        updateUserRoleChoiceBox();
     }
     
     /*
@@ -280,6 +304,7 @@ public class ProjUIController {
         createCityTxtBox.clear();
         createStateTxtBox.clear();
         createPhoneTxtBox.clear();
+        userRoleChoiceBox.getItems().clear();
     }
     
     /*
@@ -318,8 +343,11 @@ public class ProjUIController {
             
         }
     }
-    
     /*
+    *                **** User Create Tab Ends Here ****
+    */
+    
+    /*               **** Task Create Tab Starts Here ****
      * Void method which creates a LocalDate object for start date and gets 
      * the value from UI DatePicker and converts it into a string startD
      */
@@ -362,8 +390,8 @@ public class ProjUIController {
             Class.forName("com.sun.jdi.connect.spi.Connection");
             
             con1 = DriverManager.getConnection(host, user, pass); // Creates connection to the MySQL database using host-datbase name/ username / password
-            insert = con1.prepareStatement("INSERT INTO task(username,task_name,task_short_desc,task_long_desc," // Executes precompiled SQL statement
-                    + "task_start_date,task_due_date,task_category,task_tag,assigned_by)VALUES(?,?,?,?,?,?,?,?,?)"); 
+            insert = con1.prepareStatement("INSERT INTO task(username, task_name, task_short_desc, task_long_desc," // Executes precompiled SQL statement
+                    + "task_start_date, task_due_date, task_category, task_tag, assigned_by)VALUES(?,?,?,?,?,?,?,?,?)"); 
             
             /*
              * Uses PreparedStatement equal to insert and adds the values in the corresponding columns for one row at a time 
@@ -513,14 +541,105 @@ public class ProjUIController {
             
         }
     }
+    /*
+     *                   **** Task Create Tab Ends Here ****
+     */
     
   
-    /*
+    /*           **** Sign In / Sign Out Function Starts Here ****
      * Void method to call the sign in popup when the sign in menu item is clicked - Daniel
      */
     public void callSignInWindow(ActionEvent event) {
         SignIn signInObj = new SignIn();
         signInObj.display();
+        if (getSignedIn() == true ) {
+            updateActiveCategoryLV();
+            updateCompletedCategoryLV();
+        }
+        
+    }
+    
+    public void infoVerification(String u, String p) {
+        
+        try {
+            
+            Class.forName("com.sun.jdi.connect.spi.Connection"); // Loads the driver at runtime
+            con1 = DriverManager.getConnection(host, user, pass); // Creates connection to the MySQL database using host-datbase name/ username / password
+           
+            st = con1.createStatement(); // Creates SQL basic statement in java for providing methods to execute queries in the database           
+            ResultSet rs = st.executeQuery("SELECT username, password FROM user WHERE username='" + u + "'" + " AND password='" + p + "'"); // Execute the query and get the java resultset
+            
+            while (rs.next()){
+                
+                acceptedUserID = rs.getString("username");
+                acceptedUserPass = rs.getString("password");
+                
+            }
+                
+            
+            st.close();
+            rs.close();
+            
+            System.out.println("Successfully pulled ActiveCategory from MySql server!");
+            
+        } catch (ClassNotFoundException ex) {           
+            Logger.getLogger(ProjUIController.class.getName()).log(Level.SEVERE, null, ex);
+            
+        } catch (SQLException ex) {           
+            Logger.getLogger(ProjUIController.class.getName()).log(Level.SEVERE, null, ex);
+            
+        }
+    }
+    
+    public void setAcceptedUser(String s) { // Sets acceptedUserID
+        acceptedUserID = s;
+    }
+    
+    public String getAcceptedUser() { // Returns acceptedUserID
+        return acceptedUserID;
+    }
+    
+    public void setAcceptedUserPass(String s) {  // Sets acceptedUserPass
+        acceptedUserPass = s;
+    }
+    
+    public String getAcceptedUserPass() { // Returns acceptedUserPass
+        return acceptedUserPass;
+    }
+    
+    /*
+     * Void method that sets the signed in users role to that of the role assigned
+     * in the database user table.
+     */
+    public void userSpecificRole(String u) {
+        
+        try {
+            
+            Class.forName("com.sun.jdi.connect.spi.Connection"); // Loads the driver at runtime
+            con1 = DriverManager.getConnection(host, user, pass); // Creates connection to the MySQL database using host-datbase name/ username / password
+           
+            st = con1.createStatement(); // Creates SQL basic statement in java for providing methods to execute queries in the database
+            ResultSet rs = st.executeQuery("SELECT userrole FROM user WHERE username='" + u + "'"); // Execute the query and get the java resultset
+            
+            
+            userRole = rs.getString("userrole"); // Set datbase userrole equal to String variable userRole
+            
+            st.close();
+            rs.close();
+            
+            System.out.println("Successfully pulled ActiveCategory from MySql server!");
+            
+        } catch (ClassNotFoundException ex) {           
+            Logger.getLogger(ProjUIController.class.getName()).log(Level.SEVERE, null, ex);
+            
+        } catch (SQLException ex) {           
+            Logger.getLogger(ProjUIController.class.getName()).log(Level.SEVERE, null, ex);
+            
+        }
+    }
+    
+    public String getUserRole() { // Method that returns userRole;
+        return userRole;
     }
     
     /*
@@ -528,11 +647,16 @@ public class ProjUIController {
      */
     public void signOut(ActionEvent event) {
         activeTaskChoiceBox.getItems().clear();
-        completeCategoryListView.getItems().clear();
+        completeCategoryListView.getItems().clear(); // maybe remove *****
+        activeCategoryListView.getItems().clear(); // maybe remove *****
         userID = "";
         userRole = "";
+        setSignedIn(false);
         userRoleLbl.setText("Please Sign In");
     }
+    /*
+     *          **** Sign In / Sign Out Functions End Here ****
+     */
     
     /*
      * Void method that closes the application - Daniel
@@ -697,7 +821,7 @@ public class ProjUIController {
                 
                 // If statement checks to see if database table contains the following: category, username, active status
                 if (rs.getString("task_category").equalsIgnoreCase(c) && rs.getString("username").equalsIgnoreCase(u) &&
-                        rs.getBoolean("is_active") == t) {
+                        rs.getBoolean("status") == t) {
 
                     // If statement checks to see if active task choice box already contains task name to avoid adding duplicates
                     if (activeTaskChoiceBox.getItems().contains(rs.getString("task_name"))) {
@@ -997,6 +1121,9 @@ public class ProjUIController {
         });
         
     }
+    /*
+     *             **** Completed Task Tab End Here ****
+     */
     
     /*
      * Method that enables UI features based on the active user's role
@@ -1005,7 +1132,7 @@ public class ProjUIController {
      */
     public void setPermissions(){
        /*
-        Code is currently commented out until full sign in functionality is implemented
+       // Code is currently commented out until full sign in functionality is implemented
         
         if (userRole.equals("Admin")){
             activeCompletedCheck.setDisable(false);
@@ -1051,69 +1178,244 @@ public class ProjUIController {
         }
         */
     }
-
+    
+    
     
     /*
-     * Method to test for input on the fields of the Account Management tab and send input to the Manager Class
+     *     **** Account Management Tab Starts Here ****
+     * Void method that updates user information in the database
      */
-    public void updateAccountInfo(){
-        Manager managerObj = new Manager();
+    public void updateUserBtnClick(ActionEvent event) {
         
-        if(newPassTxtBox.getText() != null && !newPassTxtBox.getText().trim().isEmpty()){
-            if(oldPassTxtBox.getText().equals(newPassTxtBox.getText())){
-                managerObj.setNewPassword(newPassTxtBox.getText());
+        Manager managerObj = new Manager(); // New Manager Object
+       
+        managerObj.setNewPassword(newPassTxtBox.getText()); // Sets setNewPassword equal to newPassTxtBox input
+        managerObj.setNewStreet(streetTxtBox.getText()); // Sets setNewStreet equal to streetTxtBox input
+        managerObj.setNewCity(cityTxtBox.getText()); // Sets setNewCity equal to cityTxtBox input
+        managerObj.setNewState(stateTxtBox.getText()); // Sets setNewState equal to stateTxtBox input
+        managerObj.setNewPhone(phoneTxtBox.getText()); // Sets setNewPhone equal to phoneTxtBox input
+        
+        infoVerification(currentUser, oldPassTxtBox.getText()); // Calls infoVerification method to see if old password matches to user password on database
+        System.out.println(acceptedUserPass + " Test Location 1");
+        
+        // Creates an alert for letting user know there is an error with their password
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Password ERROR!");
+        alert.setContentText("New Password does not match Old Password!");
+        
+        try {          
+            Class.forName("com.sun.jdi.connect.spi.Connection");
+            
+            con1 = DriverManager.getConnection(host, user, pass); // Creates connection to the MySQL database using host-datbase name/ username / password
+            insert = con1.prepareStatement("UPDATE user SET password=?, street=?, city=?, state=?, phone=? WHERE username='" + currentUser + "'"); // Update prepareStatement set equal to insert
+            
+            // If statement that checks to see if the passwords match before updating information
+            if (acceptedUserPass.equals(oldPassTxtBox.getText())) {
+                
+                // Adds all the updated data to the database
+                insert.setString(1, managerObj.getNewPassword());  
+                insert.setString(2, managerObj.getNewStreet());
+                insert.setString(3, managerObj.getNewCity());
+                insert.setString(4, managerObj.getNewState());
+                insert.setString(5, managerObj.getNewPhone());
+                
+                insert.executeUpdate();
+                insert.close();
             }
-        }
-        
-        if(streetTxtBox.getText() != null && !streetTxtBox.getText().trim().isEmpty()){
-            managerObj.setNewStreet(streetTxtBox.getText());
-        }
-        
-        if(cityTxtBox.getText() != null && !cityTxtBox.getText().trim().isEmpty()){
-            managerObj.setNewCity(cityTxtBox.getText());
-        }
-        
-        if(stateTxtBox.getText() != null && !stateTxtBox.getText().trim().isEmpty()){
-            managerObj.setNewState(stateTxtBox.getText());
-        }
-        
-        if(phoneTxtBox.getText() != null && !phoneTxtBox.getText().trim().isEmpty()){
-            managerObj.setNewPhone(phoneTxtBox.getText());
-        }
+            else {
+                alert.showAndWait(); // Creates alert
+                clearUpdateUserPass(); // Calls clearUpdateUserPass() where only the password text boxes are cleared
+            }
+            
+            clearUpdateUser(); // Calls clearUpdateUser() to clear entire user info box after updating
+            
+            System.out.println("Successfully updated MySql server!");
+            
+            } catch (ClassNotFoundException ex) {         
+                Logger.getLogger(ProjUIController.class.getName()).log(Level.SEVERE, null, ex);
+            
+            } catch (SQLException ex) { 
+                Logger.getLogger(ProjUIController.class.getName()).log(Level.SEVERE, null, ex);            
+            }
     }
     
     /*
-     * Method to test for input on the fields of the Account Management tab Admin section and send input to the Manager Class
+     * Void method that clears updating user information boxes
      */
-    public void updateAccountInfoAdmin(){
-        Manager managerObj = new Manager();
+    public void clearUpdateUser() {
+        newPassTxtBox.clear();
+        streetTxtBox.clear();
+        cityTxtBox.clear();
+        stateTxtBox.clear();
+        phoneTxtBox.clear();
+        oldPassTxtBox.clear();
+    }
+    
+    /*
+     * Void method that only clears password related text fields 
+     */
+    public void clearUpdateUserPass() {
+        newPassTxtBox.clear();
+        oldPassTxtBox.clear();
+    }
+    
+    /* 
+     * Void method that updates specified user information when the update button is pressed 
+     * by a user with admin priviledge
+     */
+    public void updateAdminUserBtnClick(ActionEvent event) {
+         
+        Manager managerObj = new Manager(); // New Manager Object
+       
+        managerObj.setUserIDAdmin(adminUserTxtBox.getText()); // Sets setUserIDAdmin equal to adminUserTxtBox input
+        managerObj.setNewPassAdmin(adminNewPassTxtBox.getText()); // Sets setNewPasswordAdmin equal to adminNewPassTxtBox input
+        managerObj.setNewStreetAdmin(adminStreetTxtBox.getText()); // Sets setNewStreetAdmin equal to adminStreetTxtBox input
+        managerObj.setNewCityAdmin(adminCityTxtBox.getText()); // Sets setNewCityAdmin equal to adminCityTxtBox input
+        managerObj.setNewStateAdmin(adminStateTxtBox.getText()); // Sets setNewStateAdmin equal to adminStateTxtBox input
+        managerObj.setNewPhoneAdmin(adminPhoneTxtBox.getText()); // Sets setNewPhoneAdmin equal to adminPhoneTxtBox input
         
-        if(adminNewPassTxtBox.getText() != null && !adminNewPassTxtBox.getText().trim().isEmpty()){
-            managerObj.setNewPassAdmin(adminNewPassTxtBox.getText());
+        try {          
+            Class.forName("com.sun.jdi.connect.spi.Connection");
             
-            if(adminStreetTxtBox.getText() != null && !adminStreetTxtBox.getText().trim().isEmpty()){
-                managerObj.setNewStreetAdmin(adminStreetTxtBox.getText());
+            con1 = DriverManager.getConnection(host, user, pass); // Creates connection to the MySQL database using host-datbase name/ username / password
+            insert = con1.prepareStatement("UPDATE user SET password=?, street=?, city=?, state=?, phone=? WHERE username='" + managerObj.getUserIDAdmin() + "'" // Update prepareStatement set equal to insert
+            + " AND street='" + street + "'" + " AND city='" + city + "'"); 
+            
+            // Adds the updated data into the database for the specified user
+            insert.setString(1, managerObj.getNewPassAdmin()); 
+            insert.setString(2, managerObj.getNewStreetAdmin());
+            insert.setString(3, managerObj.getNewCityAdmin());
+            insert.setString(4, managerObj.getNewStateAdmin());
+            insert.setString(5, managerObj.getNewPhoneAdmin());
+                
+            
+            insert.executeUpdate();
+            insert.close();
+            
+            clearAdminUserUpdate();
+            
+            System.out.println("Successfully updated admin user MySql server!");
+            
+            } catch (ClassNotFoundException ex) {         
+                Logger.getLogger(ProjUIController.class.getName()).log(Level.SEVERE, null, ex);
+            
+            } catch (SQLException ex) { 
+                Logger.getLogger(ProjUIController.class.getName()).log(Level.SEVERE, null, ex);            
+            }
+    }
+   
+    /*
+     * Void method that checks if focus is still on adminUserTxtBox and calls 
+     * updateAdminUserChoiceBox() if it is not focused anymore and updates the choice box
+     */
+    public void adminTxtBoxChangeFocus() {
+        
+        // Adds ChangeListener event to adminUserTxtBox
+        adminUserTxtBox.focusedProperty().addListener(new ChangeListener<Boolean>() {
+            
+            @Override // Void method to check the "value" focus of adminUserTxtBox and determines whether it is true or false
+            public void changed(ObservableValue<? extends Boolean> arg0, Boolean oldPropertyValue, Boolean newPropertyValue) {
+            
+                if (newPropertyValue) { // If focus is true do nothing
+                    
+                    System.out.println("Textfield on focus");
+                
+                }
+                else { // Else call updateAdminUserChoiceBox
+                    
+                    System.out.println("Textfield out focus");
+                    updateAdminUserChoiceBox(); // Calls updateAdminUserChoiceBox()
+                   
+                }
+            }
+        });
+    }
+    
+    /*
+     * Void method that checks if the username entered by the Admin exist and presents
+     * choicebox options with like names and extra user information for an easier 
+     * user selection. 
+     */
+    public void updateAdminUserChoiceBox() {
+        
+        System.out.println("It works!");
+        String tempUser =  adminUserTxtBox.getText();
+        
+        try {
+            
+            Class.forName("com.sun.jdi.connect.spi.Connection"); // Loads the driver at runtime
+            con1 = DriverManager.getConnection(host, user, pass); // Creates connection to the MySQL database using host-datbase name/ username / password
+           
+            st = con1.createStatement(); // Creates SQL basic statement in java for providing methods to execute queries in the database
+            ResultSet rs = st.executeQuery("SELECT username, street, city FROM user where username='" + tempUser + "'"); // Execute the query and get the java resultset
+                   
+            
+            // While loop for iterating through ResultSet
+            while (rs.next()) {
+            
+                // If statement checks to see if active task choice box already contains task name to avoid adding duplicates
+                 if (userSelectionChoiceBox.getItems().contains(rs.getString("username")) && 
+                         userSelectionChoiceBox.getItems().contains(rs.getString("street")) &&
+                         userSelectionChoiceBox.getItems().contains(rs.getString("city"))) {
+                        
+                }
+                else {
+                    
+                     String adminUserNameChoice = rs.getString("username"); // Adds ResultSet rs to string
+                     String adminUserStreetChoice = rs.getString("street"); // Adds ResultSet rs to string
+                     String adminUserCityChoice = rs.getString("city"); // Adds ResultSet rs to string
+                     System.out.println(adminUserCityChoice);
+                     userSelectionChoiceBox.getItems().add(adminUserNameChoice + " : " + adminUserStreetChoice + " : " + adminUserCityChoice);  // Adds the task to the choicebox
+                     
+                }
+                    
+                
+                
             }
             
-            if(adminStreetTxtBox.getText() != null && !adminStreetTxtBox.getText().trim().isEmpty()){
-                managerObj.setNewStreetAdmin(adminStreetTxtBox.getText());
-            }
-        
-            if(adminCityTxtBox.getText() != null && !adminCityTxtBox.getText().trim().isEmpty()){
-                managerObj.setNewCityAdmin(adminCityTxtBox.getText());
-            }
-        
-            if(adminStateTxtBox.getText() != null && !adminStateTxtBox.getText().trim().isEmpty()){
-             managerObj.setNewStateAdmin(adminStateTxtBox.getText());
-            }
-        
-            if(adminPhoneTxtBox.getText() != null && !adminPhoneTxtBox.getText().trim().isEmpty()){
-                managerObj.setNewPhoneAdmin(adminPhoneTxtBox.getText());
-            }
+            st.close();
+            rs.close();
+            
+            System.out.println("Successfully pulled ActiveCategory from MySql server!");
+            
+        } catch (ClassNotFoundException ex) {           
+            Logger.getLogger(ProjUIController.class.getName()).log(Level.SEVERE, null, ex);
+            
+        } catch (SQLException ex) {           
+            Logger.getLogger(ProjUIController.class.getName()).log(Level.SEVERE, null, ex);
+            
         }
         
-    }
+        // Adds listener to userSelectionChoiceBox to check for the selected item and returns the selection as a String List
+        userSelectionChoiceBox.getSelectionModel().selectedItemProperty().addListener((ObservableValue<? extends String> ov, String old_val, String new_val) -> { 
+            
+            String selectedItem = userSelectionChoiceBox.getSelectionModel().getSelectedItem(); 
+            String[] str = selectedItem.split(" : ");
+            adminUserTxtBox.setText(str[0]);
+            name = str[0];
+            street = str[1];
+            city = str[2];
+            
+        });    
+       
 
+    }
+    
+    /*
+     * Void method that clears textfields and choice box for adminUpdatUser
+     */
+    public void clearAdminUserUpdate() {
+        adminUserTxtBox.clear();
+        adminNewPassTxtBox.clear();
+        adminStreetTxtBox.clear();   
+        adminCityTxtBox.clear();
+        adminStateTxtBox.clear();
+        adminPhoneTxtBox.clear();
+    }
+    /*
+     *             **** Account Management Ends Here ****
+     */
+    
 }
 
     
